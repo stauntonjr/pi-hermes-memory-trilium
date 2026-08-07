@@ -1,0 +1,11 @@
+// Example config for pi-hermes-memory-trilium
+
+{
+  "enabled": true,
+  "parentNoteId": "root/Memory",
+  "syncOnSessionEnd": true,
+  "syncOnBackgroundReview": true,
+  "syncDelayMs": 5000,
+  "createHierarchy": true,
+  "includeSourceInfo": true
+}

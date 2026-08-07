@@ -1,0 +1,45 @@
+{
+  "name": "pi-hermes-memory-trilium",
+  "version": "0.1.0",
+  "description": "Trilium sync extension for pi-hermes-memory",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "vitest",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "pi",
+    "pi-agent",
+    "trilium",
+    "memory",
+    "extension"
+  ],
+  "author": "jrs",
+  "license": "MIT",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.83.0",
+    "pi-hermes-memory": "^0.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0",
+    "vitest": "^1.6.0"
+  },
+  "pi": {
+    "extension": true,
+    "main": "dist/index.js",
+    "name": "pi-hermes-memory-trilium",
+    "version": "0.1.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  }
+}
