@@ -74,6 +74,13 @@ export TRILIUM_ENABLE_SSL_VERIFY="false"
 pi install npm:pi-hermes-memory-trilium
 ```
 
+### Or Clone from GitHub
+
+```bash
+git clone https://github.com/stauntonjr/pi-hermes-memory-trilium.git
+pi install /path/to/pi-hermes-memory-trilium/dist/index.js
+```
+
 ### Configure via Environment Variables
 
 ```bash
@@ -297,6 +304,13 @@ npm run format
 ## License
 
 MIT
+
+---
+
+## Links
+
+- [GitHub Repository](https://github.com/stauntonjr/pi-hermes-memory-trilium)
+- [npm Package](https://www.npmjs.com/package/pi-hermes-memory-trilium)
 
 ---
 
