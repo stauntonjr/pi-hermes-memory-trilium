@@ -14,7 +14,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as crypto from "crypto";
-import * as os from "os";
 
 // Configuration constants
 const TRILIUM_API_URL = process.env.TRILIUM_API_URL || "https://YOUR-TRILIUM-SERVER.com/etapi";
@@ -22,10 +21,6 @@ const TRILIUM_API_TOKEN = process.env.TRILIUM_API_TOKEN || "YOUR-TRILIUM-API-TOK
 const TRILIUM_PARENT_NOTE_ID = process.env.TRILIUM_PARENT_NOTE_ID || "root";
 const PI_HERMES_MEMORY_DIR = process.env.PI_HERMES_MEMORY_DIR || "/path/to/pi-hermes-memory";
 const LAST_SYNC_FILE = path.join(PI_HERMES_MEMORY_DIR, ".last-sync");
-
-// Host-based organization constants
-const TOP_LEVEL_NOTE_TITLE = "pi-hermes-memory";
-const HOST_NOTE_TITLE = os.hostname();
 
 // Entry point for sync
 interface MemoryEntry {
@@ -134,94 +129,8 @@ async function getTriliumNote(noteId: string): Promise<any | null> {
 }
 
 /**
- * Get or create the top-level pi-hermes-memory note
+ * Create a note in Trilium
  */
-async function getOrCreateTopLevelNote(): Promise<string | null> {
-  try {
-    // Search for existing note
-    const notes = await searchTriliumNotes(TOP_LEVEL_NOTE_TITLE);
-    const existingNote = notes.find((n: any) => n.title === TOP_LEVEL_NOTE_TITLE && n.parentNoteId === 'root');
-    
-    if (existingNote) {
-      console.log(`[pi-hermes-memory-trilium] Found existing top-level note: ${existingNote.noteId}`);
-      return existingNote.noteId;
-    }
-    
-    // Create new note
-    console.log(`[pi-hermes-memory-trilium] Creating top-level note: ${TOP_LEVEL_NOTE_TITLE}`);
-    const createResult = await fetch(`${TRILIUM_API_URL}/create-note`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TRILIUM_API_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        parentNoteId: 'root',
-        title: TOP_LEVEL_NOTE_TITLE,
-        type: 'text',
-        content: '<p>pi-hermes-memory host notes</p>',
-        mime: 'text/html'
-      })
-    });
-    
-    if (!createResult.ok) {
-      throw new Error(`HTTP ${createResult.status}: ${createResult.statusText}`);
-    }
-    
-    const result = await createResult.json();
-    console.log(`[pi-hermes-memory-trilium] Created top-level note: ${result.note.noteId}`);
-    return result.note.noteId;
-  } catch (error) {
-    console.error(`[pi-hermes-memory-trilium] Error with top-level note:`, error);
-    return null;
-  }
-}
-
-/**
- * Get or create the host-specific note under pi-hermes-memory
- */
-async function getOrCreateHostNote(topLevelNoteId: string): Promise<string | null> {
-  try {
-    // Search for existing host note
-    const searchQuery = `${TOP_LEVEL_NOTE_TITLE}/${HOST_NOTE_TITLE}`;
-    const notes = await searchTriliumNotes(searchQuery);
-    const existingNote = notes.find((n: any) => n.title === HOST_NOTE_TITLE && n.parentNoteId === topLevelNoteId);
-    
-    if (existingNote) {
-      console.log(`[pi-hermes-memory-trilium] Found existing host note: ${existingNote.noteId} (host: ${HOST_NOTE_TITLE})`);
-      return existingNote.noteId;
-    }
-    
-    // Create new note
-    console.log(`[pi-hermes-memory-trilium] Creating host note: ${HOST_NOTE_TITLE}`);
-    const createResult = await fetch(`${TRILIUM_API_URL}/create-note`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TRILIUM_API_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        parentNoteId: topLevelNoteId,
-        title: HOST_NOTE_TITLE,
-        type: 'text',
-        content: `<p>Memory notes from ${HOST_NOTE_TITLE}</p>`,
-        mime: 'text/html'
-      })
-    });
-    
-    if (!createResult.ok) {
-      throw new Error(`HTTP ${createResult.status}: ${createResult.statusText}`);
-    }
-    
-    const result = await createResult.json();
-    console.log(`[pi-hermes-memory-trilium] Created host note: ${result.note.noteId} (host: ${HOST_NOTE_TITLE})`);
-    return result.note.noteId;
-  } catch (error) {
-    console.error(`[pi-hermes-memory-trilium] Error with host note:`, error);
-    return null;
-  }
-}
-
 async function createTriliumNote(params: {
   parentNoteId: string;
   title: string;
@@ -229,7 +138,6 @@ async function createTriliumNote(params: {
   category: string;
   source: string;
   timestamp: string;
-  id?: string;
 }): Promise<string | null> {
   try {
     // Step 1: Create the note with retry
@@ -325,36 +233,6 @@ async function createTriliumNote(params: {
     return null;
   }
 }
-/**
- * Update an existing note in Trilium
- */
-async function updateTriliumNote(noteId: string, content: string, expectedHash: string): Promise<boolean> {
-  try {
-    const result = await retryWithBackoff(async () => {
-      const response = await fetch(`${TRILIUM_API_URL}/notes/${noteId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${TRILIUM_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          content: `<p>${content.replace(/\n/g, '<br>')}</p>`
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      return true;
-    });
-    
-    return result;
-  } catch (error) {
-    console.error(`[pi-hermes-memory-trilium] Error updating note ${noteId} after retries:`, error);
-    return false;
-  }
-}
 
 /**
  * Search for a note by title in Trilium
@@ -405,20 +283,6 @@ async function saveLastSyncTime(): Promise<void> {
   } catch (error) {
     console.error(`[pi-hermes-memory-trilium] Error saving sync time:`, error);
   }
-}
-
-/**
- * Check if content has changed since last sync
- */
-async function contentChanged(content: string, note: any): Promise<boolean> {
-  const lastSync = await getLastSyncTime();
-  if (!lastSync) return true;
-  
-  // Compare current content hash with note content
-  const currentHash = calculateHash(content);
-  const noteHash = note.contentHash || '';
-  
-  return currentHash !== noteHash;
 }
 
 /**
@@ -489,18 +353,8 @@ async function archiveNote(noteId: string): Promise<boolean> {
 async function syncToTrilium(): Promise<void> {
   console.log('[pi-hermes-memory-trilium] Starting sync...');
   
-  // Set up host-based organization
-  const topLevelNoteId = await getOrCreateTopLevelNote();
-  if (!topLevelNoteId) {
-    console.error('[pi-hermes-memory-trilium] Failed to get/create top-level note, aborting sync');
-    return;
-  }
-  
-  const hostNoteId = await getOrCreateHostNote(topLevelNoteId);
-  if (!hostNoteId) {
-    console.error('[pi-hermes-memory-trilium] Failed to get/create host note, aborting sync');
-    return;
-  }
+  // Use a consistent parent note ID to prevent scattered notes
+  console.log(`[pi-hermes-memory-trilium] Using parent note ID: ${TRILIUM_PARENT_NOTE_ID}`);
   
   const memoryFiles = ['MEMORY.md', 'USER.md', 'failures.md'];
   const createdNotes: string[] = [];
@@ -524,9 +378,9 @@ async function syncToTrilium(): Promise<void> {
         console.log(`[pi-hermes-memory-trilium] Skipped (already exists): ${entry.id}`);
         syncedNoteIds.push(existingNote.noteId);
       } else {
-        // Create new note under host note
+        // Create new note with consistent parent
         const noteId = await createTriliumNote({
-          parentNoteId: hostNoteId,
+          parentNoteId: TRILIUM_PARENT_NOTE_ID,
           title: entry.id,
           content: entry.content,
           category: entry.category || 'memory',
@@ -546,9 +400,8 @@ async function syncToTrilium(): Promise<void> {
   }
   
   // Find and archive orphaned notes (notes in Trilium but not in local files)
-  // Only search under the host note for orphaned notes
-  console.log('[pi-hermes-memory-trilium] Checking for orphaned notes under host note...');
-  const allTriliumNotes = await getAllTriliumNotes(hostNoteId);
+  console.log('[pi-hermes-memory-trilium] Checking for orphaned notes...');
+  const allTriliumNotes = await getAllTriliumNotes(TRILIUM_PARENT_NOTE_ID);
   
   for (const triliumNote of allTriliumNotes) {
     // Check if this note's ID is in our synced list
@@ -568,7 +421,7 @@ async function syncToTrilium(): Promise<void> {
   // Save sync timestamp
   await saveLastSyncTime();
   
-  console.log(`[pi-hermes-memory-trilium] Sync complete! Created ${createdNotes.length} notes, synced ${syncedNoteIds.length} total (host: ${HOST_NOTE_TITLE})`);
+  console.log(`[pi-hermes-memory-trilium] Sync complete! Created ${createdNotes.length} notes, synced ${syncedNoteIds.length} total`);
 }
 
 /**
